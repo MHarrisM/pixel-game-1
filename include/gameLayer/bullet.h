@@ -5,7 +5,7 @@ struct Bullet
 {
 	glm::vec2 position = {};
 	glm::vec2 fireDirection = {};
-
+	float speed;
 	void render(
 		gl2d::Renderer2D& renderer,
 		gl2d::Texture bulletsTexture,

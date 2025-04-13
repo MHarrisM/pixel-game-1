@@ -13,11 +13,13 @@
 #include <tiledRenderer.h>
 #include <bullet.h>
 #include <vector>
+#include <enemy.h>
 //YTU: Keep gameplay info in one Struct
 struct GameplayData
 {
 	glm::vec2 playerPos = {10, 10};
 	std::vector<Bullet> bullets;
+	std::vector<Enemy> enemies;
 };
 GameplayData data;
 constexpr int BACKGROUNDS = 3;
@@ -29,9 +31,16 @@ gl2d::Texture bulletTexture;
 gl2d::TextureAtlasPadding spaceShipsAtlas;
 gl2d::TextureAtlasPadding bulletAtlas;
 gl2d::Texture backgroundTexture[BACKGROUNDS];
-
-
 TiledRenderer tiledRenderer[BACKGROUNDS];
+
+
+void restartGame() {
+
+}
+
+
+
+
 bool initGame()
 {
 	//initializing stuff for the renderer
@@ -109,19 +118,19 @@ bool gameLogic(float deltaTime)
 	if (move.x != 0 || move.y != 0)
 	{
 		move = glm::normalize(move);
-		move *= deltaTime * 700;	//200 pixels/second (deltaTime is the time since that last frame in seconds)
+		move *= deltaTime * 1700;	//200 pixels/second (deltaTime is the time since that last frame in seconds)
 		data.playerPos += move;
 	}
 
 #pragma endregion
 
 #pragma region follow
-	renderer.currentCamera.follow(data.playerPos, deltaTime * 700, 10, 200, w, h);
+	renderer.currentCamera.follow(data.playerPos, deltaTime * 1700, 10, 200, w, h);
 #pragma endregion
 
 #pragma region render background
 
-	renderer.currentCamera.zoom = 1.0f;
+	renderer.currentCamera.zoom = 0.5f;
 
 	for (int i= 0; i < BACKGROUNDS; i++) 
 	{
@@ -155,11 +164,11 @@ bool gameLogic(float deltaTime)
 #pragma region bullet logic
 	if (platform::isLMousePressed())
 	{
-		Bullet C;
+		
 		Bullet b;
 		b.position = data.playerPos;
 		b.fireDirection = mouseDirection;
-
+		b.speed = 2000.0f;
 		data.bullets.push_back(b);
 	}
 
@@ -175,7 +184,7 @@ bool gameLogic(float deltaTime)
 
 	
 #pragma endregion
-
+	 
 
 
 #pragma region renderbullets
@@ -185,11 +194,43 @@ bool gameLogic(float deltaTime)
 	}
 #pragma endregion
 
+
+#pragma region enemy logic
+	for (int i = 0; i < data.enemies.size(); i++) {
+
+		if (glm::distance(data.playerPos, data.enemies[i].position) > 4000.0f) {
+			data.enemies.erase(data.enemies.begin() + i);
+			i--;
+			continue;
+		}
+		if (data.enemies[i].update(deltaTime, data.playerPos))
+		{
+			Bullet b;
+			b.position = data.enemies[i].position;
+			b.fireDirection = data.enemies[i].viewDirection;
+			b.speed = 2000.0f;
+			data.bullets.push_back(b);
+		}
+		data.enemies[i].update(deltaTime, data.playerPos);
+	}
+
+
+#pragma endregion
+
+
+#pragma region render enemies
+	for (auto& e : data.enemies) {
+		e.render(renderer, spaceShipTexture, spaceShipsAtlas);
+	}
+
+
+#pragma endregion
+
+
 #pragma region rendership
 	constexpr float shipSize = 100.0f;
 	
-	renderer.renderRectangle({ data.playerPos - glm::vec2(shipSize/2, shipSize/2), shipSize, shipSize},
-		spaceShipTexture, Colors_White, {}, glm::degrees(spaceShipAngle) + 90.0f, spaceShipsAtlas.get(4,0));
+	renderSpaceShip(renderer, data.playerPos, shipSize, spaceShipTexture, spaceShipsAtlas.get(4, 0), mouseDirection);
 #pragma endregion
 	
 
@@ -203,7 +244,18 @@ bool gameLogic(float deltaTime)
 	ImGui::Begin("debug");
 
 	ImGui::Text("Bullet Count: %d", (int)data.bullets.size());
-
+	ImGui::Text("Bullet Enemies: %d", (int)data.enemies.size());
+	if (ImGui::Button("Spawn Enemy")) {
+		glm::uvec2 shipTypes[] = { {0,0},{0,1},{2,0} ,{3,1} };
+		Enemy e;
+		e.position = data.playerPos;
+		e.speed = 100 + rand() % 1000;			//Change speed logic boooo
+		e.turnSpeed = 2.0f + (rand() % 1000) / 500.0f;
+		e.type = shipTypes[rand() % 4];
+		e.fireRange = 1.5 + (rand() % 1000) / 2000.0f;
+		e.fireTimeReset = 0.1 + (rand() % 1000) / 500;
+		data.enemies.push_back(e);
+	}
 	ImGui::End();
 
 	return true;

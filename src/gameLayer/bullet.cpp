@@ -11,5 +11,5 @@ void Bullet::render(gl2d::Renderer2D& renderer, gl2d::Texture bulletsTexture, gl
 
 void Bullet::update(float deltaTime)
 {
-	position += fireDirection * deltaTime * 1500.0f;
+	position += fireDirection * deltaTime * speed;
 }
