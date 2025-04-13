@@ -155,6 +155,7 @@ bool gameLogic(float deltaTime)
 #pragma region bullet logic
 	if (platform::isLMousePressed())
 	{
+		Bullet C;
 		Bullet b;
 		b.position = data.playerPos;
 		b.fireDirection = mouseDirection;
@@ -164,17 +165,14 @@ bool gameLogic(float deltaTime)
 
 	for (int i = 0; i < data.bullets.size(); i++) {
 		if (glm::distance(data.bullets[i].position, data.playerPos) > 5'000) {
-			data.bullets.erase(data.bullets.begin() + 1);
+			data.bullets.erase(data.bullets.begin() + i);
 			i--;
 			continue;
 		}
 		data.bullets[i].update(deltaTime);
 
 	}
-	//for (auto &b : data.bullets)
-	//{
-	//	b.update(deltaTime);
-	//}
+
 	
 #pragma endregion
 
