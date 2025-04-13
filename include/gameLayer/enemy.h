@@ -7,11 +7,12 @@ struct Enemy {
 	glm::vec2 position = {};
 	glm::vec2 viewDirection = { 1,0 };
 	float enemyShipSize = 150.0f;
-	float turnSpeed;
-	float speed;
-	float firedTime;
-	float fireTimeReset;
-	float fireRange;
+	float turnSpeed = 3.0f;
+	float speed = 1300.0f;
+	float firedTime = 1.0f;
+	float fireTimeReset = 1.0f;
+	float fireRange = 1.5;
+	float enemyHealth = 1.0f;
 	void render(
 		gl2d::Renderer2D& renderer,
 		gl2d::Texture &sprites, 
