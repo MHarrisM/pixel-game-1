@@ -15,4 +15,6 @@ void renderSpaceShip(
 	float size,
 	gl2d::Texture texture,
 	glm::vec4 uvs,
-	glm::vec2 viewDirection);
+	glm::vec2 viewDirection,
+	bool isDashing,
+	glm::vec2 dashDirection);

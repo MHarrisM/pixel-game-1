@@ -24,6 +24,16 @@ struct GameplayData
 	std::vector<Enemy> enemies; 
 	float health = 1.0f;
 	float spawnEnemyTimerInSeconds = 3;
+
+
+	float dashCooldown = 1.0f;     // seconds
+	float dashTimer = 0.0f;
+	float dashDuration = 0.15f;    // seconds of active dash
+	float dashTimeRemaining = 0.0f;
+	glm::vec2 dashDirection = {};
+	bool isDashing = false;
+	float dashSpeed = 8000.0f;
+	glm::vec2 moveDirection = {};
 };
 GameplayData data;
 constexpr int BACKGROUNDS = 3;
@@ -110,7 +120,7 @@ bool gameLogic(float deltaTime)
 	int w = 0; int h = 0;
 	w = platform::getFrameBufferSizeX(); //window w
 	h = platform::getFrameBufferSizeY(); //window h
-	
+
 	glViewport(0, 0, w, h);
 	glClear(GL_COLOR_BUFFER_BIT); //clear screen
 
@@ -119,49 +129,85 @@ bool gameLogic(float deltaTime)
 
 
 #pragma region movement
-	glm::vec2 move = {};
-	if (
-		platform::isButtonHeld(platform::Button::W) ||
-		platform::isButtonHeld(platform::Button::Up)
-		)
-	{
-		move.y = -1;
-	}
-	if (
-		platform::isButtonHeld(platform::Button::S) ||
-		platform::isButtonHeld(platform::Button::Down)
-		)
-	{
-		move.y = 1;
-	}
-	if (
-		platform::isButtonHeld(platform::Button::A) ||
-		platform::isButtonHeld(platform::Button::Left)
-		)
-	{
-		move.x = -1;
-	}
-	if (
-		platform::isButtonHeld(platform::Button::D) ||
-		platform::isButtonHeld(platform::Button::Right)
-		)
-	{
-		move.x = 1;
-	}
 
-	//Normalize movement vector
-	if (move.x != 0 || move.y != 0)
-	{
-		move = glm::normalize(move);
-		move *= deltaTime * 1700;	//200 pixels/second (deltaTime is the time since that last frame in seconds)
-		data.playerPos += move;
-	}
+
+	
+		glm::vec2 move = {};
+		if (
+			platform::isButtonHeld(platform::Button::W) ||
+			platform::isButtonHeld(platform::Button::Up)
+			)
+		{
+			move.y = -1;
+		}
+	
+		if (
+			platform::isButtonHeld(platform::Button::S) ||
+			platform::isButtonHeld(platform::Button::Down)
+			)
+		{
+			move.y = 1;
+		}
+		if (
+			platform::isButtonHeld(platform::Button::A) ||
+			platform::isButtonHeld(platform::Button::Left)
+			)
+		{
+			move.x = -1;
+		}
+		if (
+			platform::isButtonHeld(platform::Button::D) ||
+			platform::isButtonHeld(platform::Button::Right)
+			)
+		{
+			move.x = 1;
+		}
+		if (platform::isButtonPressedOn(platform::Button::Space) && data.dashTimer <= 0.0f && (move.x != 0 || move.y != 0))
+		{
+			data.isDashing = true;
+			data.dashTimeRemaining = data.dashDuration;
+			data.dashTimer = data.dashCooldown;
+			data.dashDirection = glm::normalize(move); // dash in the current movement direction
+		}
+
+	
+
+		else if (move.x != 0 || move.y != 0)
+		{
+			move = glm::normalize(move);
+			move *= deltaTime * 1700; // regular speed
+
+			if (data.isDashing)
+			{
+				data.playerPos += data.dashDirection * deltaTime * data.dashSpeed;
+				data.dashTimeRemaining -= deltaTime;
+				if (data.dashTimeRemaining <= 0.0f)
+					data.isDashing = false;
+			}
+			else {
+				data.playerPos += move;
+			}
+			
+		}
+
+	
+	if (data.dashTimer > 0.0f)
+		data.dashTimer -= deltaTime;
+	
+
+	////Normalize movement vector
+	//if (move.x != 0 || move.y != 0)
+	//{
+	//	move = glm::normalize(move);
+	//	move *= deltaTime * 1700;	//200 pixels/second (deltaTime is the time since that last frame in seconds)
+	//	data.playerPos += move;
+	//}
 
 #pragma endregion
 
 
 #pragma region follow
-	renderer.currentCamera.follow(data.playerPos, deltaTime * 1700, 10, 200, w, h);
+	renderer.currentCamera.follow(data.playerPos, deltaTime * 1700, 10, 10, w, h);
 #pragma endregion
 
 
@@ -169,11 +215,11 @@ bool gameLogic(float deltaTime)
 
 	renderer.currentCamera.zoom = 0.5f;
 
-	for (int i= 0; i < BACKGROUNDS; i++) 
+	for (int i = 0; i < BACKGROUNDS; i++)
 	{
 		tiledRenderer[i].render(renderer);
 	}
-	
+
 
 
 #pragma endregion
@@ -185,7 +231,7 @@ bool gameLogic(float deltaTime)
 
 	glm::vec2 mouseDirection = mousePos - screenCenter;
 
-	if(glm::length(mouseDirection) == 0.f)
+	if (glm::length(mouseDirection) == 0.f)
 	{
 		mouseDirection = { 1,0 };
 	}
@@ -199,11 +245,23 @@ bool gameLogic(float deltaTime)
 #pragma region bullet logic
 	if (platform::isLMousePressed())
 	{
-		
+
 		Bullet b;
 		b.position = data.playerPos;
 		b.fireDirection = mouseDirection;
 		b.speed = 2000.0f;
+		data.bullets.push_back(b);
+
+		PlaySound(shootSound);
+	}
+	else if (platform::isRMousePressed()) {
+
+		Bullet b;
+		b.position = data.playerPos;
+		b.fireDirection = mouseDirection;
+		b.speed = 3000.0f;
+		b.type = 1;
+		b.damage = 1.0f;
 		data.bullets.push_back(b);
 
 		PlaySound(shootSound);
@@ -220,7 +278,7 @@ bool gameLogic(float deltaTime)
 			for (int e = 0; e < data.enemies.size(); e++) {
 				//if bullet hits enemy do damage and if health 0 or less delete
 				if (intersectBullet(data.bullets[i].position, data.enemies[e].position, data.enemies[e].enemyShipSize)) {
-					data.enemies[e].enemyHealth -= 0.2f;
+					data.enemies[e].enemyHealth -= data.bullets[i].damage;
 					
 					
 					if (data.enemies[e].enemyHealth <= 0.0f) {
@@ -301,7 +359,7 @@ bool gameLogic(float deltaTime)
 #pragma region rendership
 	
 	
-	renderSpaceShip(renderer, data.playerPos, shipSize, spaceShipTexture, spaceShipsAtlas.get(4, 0), mouseDirection);
+	renderSpaceShip(renderer, data.playerPos, shipSize, spaceShipTexture, spaceShipsAtlas.get(4, 0), mouseDirection, data.isDashing, data.dashDirection);
 #pragma endregion
 	
 
@@ -332,7 +390,6 @@ bool gameLogic(float deltaTime)
 
 
 #pragma endregion
-
 
 
 	renderer.flush();
